@@ -9,7 +9,7 @@ import time
 
 import streamlit as st
 
-from vertigo import auth, config, fal, i18n, oidc, pwa, ui
+from vertigo import auth, config, demo, fal, i18n, oidc, pwa, ui
 
 
 def _brand_logo_file():
@@ -215,42 +215,36 @@ PAGE_DEFS = [
         "title": i18n.t("nav.home"),
         "icon": ":material/cyclone:",
         "section": "",
-        "subtitle": i18n.t("subtitle.home"),
     },
     {
         "path": "app_pages/studio.py",
         "title": i18n.t("nav.studio"),
         "icon": ":material/auto_awesome:",
         "section": i18n.t("section.create"),
-        "subtitle": i18n.t("subtitle.studio"),
     },
     {
         "path": "app_pages/enhance.py",
         "title": i18n.t("nav.enhance"),
         "icon": ":material/high_quality:",
         "section": i18n.t("section.create"),
-        "subtitle": i18n.t("subtitle.enhance"),
     },
     {
         "path": "app_pages/speech.py",
         "title": i18n.t("nav.speech"),
         "icon": ":material/record_voice_over:",
         "section": i18n.t("section.create"),
-        "subtitle": i18n.t("subtitle.speech"),
     },
     {
         "path": "app_pages/library.py",
         "title": i18n.t("nav.library"),
         "icon": ":material/photo_library:",
         "section": i18n.t("section.manage"),
-        "subtitle": i18n.t("subtitle.library"),
     },
     {
         "path": "app_pages/settings.py",
         "title": i18n.t("nav.settings"),
         "icon": ":material/settings:",
         "section": i18n.t("section.manage"),
-        "subtitle": i18n.t("subtitle.settings"),
     },
 ]
 
@@ -280,12 +274,22 @@ with st.sidebar:
             st.session_state.pop("user_name", None)
             st.rerun()
     ui.language_switch()
-    if not fal.has_key():
+    demo_active = demo.is_enabled()
+    demo_toggled = st.toggle(
+        i18n.t("sidebar.demo_mode"),
+        value=demo_active,
+        key="sidebar_demo_mode",
+        disabled=demo.env_forced(),
+        help=i18n.t("sidebar.demo_help"),
+    )
+    if not demo.env_forced() and demo_toggled != demo_active:
+        demo.set_enabled(demo_toggled)
+        st.rerun()
+    if demo.is_enabled():
+        st.badge(i18n.t("status.demo"), icon=":material/science:", color="violet")
+    elif not fal.has_key():
         st.caption(i18n.t("sidebar.no_key"))
 
 st.title(page.title, icon=page.icon)
-_subtitle = next((d["subtitle"] for d in PAGE_DEFS if d["title"] == page.title), None)
-if _subtitle:
-    st.caption(_subtitle)
 
 page.run()

@@ -71,53 +71,80 @@ mode = st.segmented_control(
 left, right = st.columns([2, 3], gap="large")
 
 with left:
-    if mode == UPSCALE:
-        asset = ui.image_picker(library, key="upscale_source", label=i18n.t("enhance.image"))
-        labels = [i18n.t(f"models.{m['id']}.label") for m in config.UPSCALE_MODELS]
-        label = st.selectbox(i18n.t("studio.model"), labels, key="upscale_model")
-        model = next(
-            m
-            for m in config.UPSCALE_MODELS
-            if i18n.t(f"models.{m['id']}.label") == label
-        )
-        arguments: dict = {}
-        if model["engine"] == "topaz":
-            arguments["model"] = st.selectbox(
-                i18n.t("enhance.enhancer"), config.TOPAZ_MODELS, key="upscale_topaz_model"
+    with st.container(border=True):
+        if mode == UPSCALE:
+            asset = ui.image_picker(
+                library, key="upscale_source", label=i18n.t("enhance.image")
             )
-            arguments["upscale_factor"] = st.slider(
-                i18n.t("enhance.factor"), 1.0, 4.0, 2.0, 0.5, key="upscale_factor"
+            model_map = {
+                i18n.t(f"models.{m['id']}.label"): m["id"]
+                for m in config.UPSCALE_MODELS
+            }
+            labels = list(model_map)
+            label = ui.icon_selectbox(
+                i18n.t("studio.model"),
+                labels,
+                param_type="upscale_model",
+                value_map=model_map,
+                key="upscale_model",
             )
-            arguments["output_format"] = st.selectbox(
-                i18n.t("param.format"), ["jpeg", "png"], key="upscale_format"
+            model = next(
+                m
+                for m in config.UPSCALE_MODELS
+                if i18n.t(f"models.{m['id']}.label") == label
             )
-            arguments["face_enhancement"] = st.toggle(
-                i18n.t("enhance.face"), value=True, key="upscale_face"
+            arguments: dict = {}
+            if model["engine"] == "topaz":
+                with st.expander(
+                    i18n.t("studio.parameters"), type="compact", expanded=True
+                ):
+                    arguments["model"] = ui.icon_selectbox(
+                        i18n.t("enhance.enhancer"),
+                        config.TOPAZ_MODELS,
+                        param_type="topaz_model",
+                        key="upscale_topaz_model",
+                    )
+                    arguments["upscale_factor"] = st.slider(
+                        i18n.t("enhance.factor"),
+                        1.0,
+                        4.0,
+                        2.0,
+                        0.5,
+                        key="upscale_factor",
+                    )
+                    arguments["output_format"] = ui.icon_selectbox(
+                        i18n.t("param.format"),
+                        ["jpeg", "png"],
+                        param_type="output_format",
+                        key="upscale_format",
+                    )
+                    arguments["face_enhancement"] = st.toggle(
+                        i18n.t("enhance.face"), value=True, key="upscale_face"
+                    )
+            if st.button(
+                i18n.t("enhance.upscale"),
+                type="primary",
+                icon=":material/high_quality:",
+                disabled=not (fal.ready() and asset),
+                key="upscale_go",
+                width="stretch",
+            ):
+                if asset is not None:
+                    _queue_upscale(asset, model, arguments)
+        else:
+            asset = ui.image_picker(
+                library, key="rmbg_source", label=i18n.t("enhance.image")
             )
-        st.caption(i18n.t(f"models.{model['id']}.tagline"))
-        st.caption(i18n.t(f"models.{model['id']}.pricing"))
-        if st.button(
-            i18n.t("enhance.upscale"),
-            type="primary",
-            icon=":material/high_quality:",
-            disabled=not (fal.has_key() and asset),
-            key="upscale_go",
-        ):
-            if asset is not None:
-                _queue_upscale(asset, model, arguments)
-    else:
-        asset = ui.image_picker(library, key="rmbg_source", label=i18n.t("enhance.image"))
-        st.caption(i18n.t("enhance.rmbg_caption"))
-        st.caption(i18n.t("models.remove-bg.pricing"))
-        if st.button(
-            i18n.t("enhance.remove_bg"),
-            type="primary",
-            icon=":material/content_cut:",
-            disabled=not (fal.has_key() and asset),
-            key="rmbg_go",
-        ):
-            if asset is not None:
-                _queue_remove_bg(asset)
+            if st.button(
+                i18n.t("enhance.remove_bg"),
+                type="primary",
+                icon=":material/content_cut:",
+                disabled=not (fal.ready() and asset),
+                key="rmbg_go",
+                width="stretch",
+            ):
+                if asset is not None:
+                    _queue_remove_bg(asset)
 
 with right:
     if st.session_state.enhance_jobs:

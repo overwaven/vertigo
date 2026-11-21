@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from vertigo import auth, config, fal, i18n, ui
+from vertigo import auth, config, demo, fal, i18n, ui
 from vertigo.store import get_library
 
 library = ui.current_library()
@@ -85,7 +85,6 @@ def _render_profile() -> None:
             if user.must_change_pin:
                 badges.append(f":orange-badge[{i18n.t('settings.badge_default_pin')}]")
             st.markdown(f"**{user.name}** " + " ".join(badges))
-            st.caption(f"`{user.id}`")
 
         name_column, pin_column, out_column = actions.columns(3, gap="small")
 
@@ -170,6 +169,9 @@ def _render_profile() -> None:
 
 
 def _render_connection() -> None:
+    if demo.is_enabled():
+        st.info(i18n.t("settings.demo_active"), icon=":material/science:")
+
     if fal.has_key():
         st.success(
             i18n.t(
@@ -418,8 +420,8 @@ def _render_about() -> None:
         )
     )
     st.caption(
-        "Models: GPT Image 2.5 · Nano Banana 2 · Recraft V3 · Ideogram · Topaz · "
-        "ElevenLabs Multilingual v2 · ElevenLabs Scribe v2"
+        "Models: GPT Image 2.6 · Nano Banana 2.1 · Ideogram 4.6 · Recraft V3 · Topaz · "
+        "ElevenLabs Eleven v4 · Gemini 3.8 Flash TTS · ElevenLabs Scribe v2"
     )
 
 

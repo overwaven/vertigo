@@ -10,7 +10,7 @@ library = ui.current_library()
 counts = library.counts()
 queue = ui.current_manager().counts()
 
-if not fal.has_key():
+if not fal.ready():
     st.warning(
         i18n.t("home.no_key", url=config.FAL_DASHBOARD_URL),
         icon=":material/key:",

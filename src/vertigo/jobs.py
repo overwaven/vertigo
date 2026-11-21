@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 
 import fal_client
 
-from . import config, fal
+from . import config, demo, fal
 from .store import Library, get_library
 
 # How a job's result should be turned into library assets.
@@ -80,6 +80,7 @@ class Job:
     parent_id: str | None = None
     summary: str = ""
     name_hint: str = ""
+    demo: bool = False
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
     started_at: str | None = None
@@ -193,7 +194,9 @@ class JobManager:
         save_kind: str,
         parent_id: str | None = None,
         name_hint: str = "",
+        is_demo: bool | None = None,
     ) -> str:
+        use_demo = demo.is_enabled() if is_demo is None else bool(is_demo)
         job = Job(
             id=uuid.uuid4().hex[:12],
             kind=kind,
@@ -203,6 +206,7 @@ class JobManager:
             save_kind=save_kind,
             parent_id=parent_id,
             name_hint=name_hint,
+            demo=use_demo,
             status="queued",
         )
         with self._lock:
@@ -215,7 +219,7 @@ class JobManager:
         job = self.get(job_id)
         if job is None or not job.active:
             return False
-        if job.request_id:
+        if job.request_id and not job.demo:
             fal.cancel(job.endpoint, job.request_id)
         self._update(job_id, status="cancelled", finished_at=_now())
         return True
@@ -253,6 +257,23 @@ class JobManager:
         def on_enqueue(request_id: str) -> None:
             self._update(job_id, request_id=request_id)
 
+        if job.demo:
+            try:
+                result = demo.run_job(
+                    job,
+                    self.library,
+                    on_enqueue=on_enqueue,
+                    on_log=lambda msgs: self._append_logs(job_id, msgs),
+                    is_cancelled=lambda: (self.get(job_id) or job).status == "cancelled",
+                )
+            except Exception as exc:  # noqa: BLE001 - surfaced to the user
+                self._fail(job_id, exc)
+                return
+            if result is None:
+                return
+            self._finish(job_id, result)
+            return
+
         def on_queue_update(update: Any) -> None:
             if isinstance(update, fal_client.InProgress):
                 messages = [
@@ -285,7 +306,7 @@ class JobManager:
         job = self.get(job_id)
         if job is None or not job.active:
             return
-        if not job.request_id:
+        if job.demo or not job.request_id:
             self._run(job_id)
             return
 
@@ -365,12 +386,16 @@ class JobManager:
             return None
         if isinstance(item, str):
             item = {"url": item}
-        url = item.get("url")
-        if not url:
+        raw_data = item.get("data")
+        url = str(item.get("url") or "")
+        if raw_data is None and not url:
             return None
 
         media_type = item.get("content_type") or item.get("mime_type") or ""
-        fallback_name = Path(urlparse(url).path).name or f"{job.label}-{index + 1}"
+        fallback_name = (
+            (Path(urlparse(url).path).name if url else "")
+            or f"{job.label}-{index + 1}"
+        )
         name = item.get("file_name") or fallback_name
         if not media_type:
             media_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
@@ -381,7 +406,7 @@ class JobManager:
             suffix = f"-{index + 1}" if index else ""
             name = f"{job.name_hint}{suffix}{extension}"
 
-        data = fal.download_bytes(url)
+        data = bytes(raw_data) if raw_data is not None else fal.download_bytes(url)
         kind = _kind_for(job, media_type, name)
         meta = {
             "job_id": job.id,
@@ -389,6 +414,7 @@ class JobManager:
             "category": job.kind,
             "width": item.get("width"),
             "height": item.get("height"),
+            "demo": True if job.demo else None,
         }
         meta = {k: v for k, v in meta.items() if v is not None}
 
@@ -398,10 +424,10 @@ class JobManager:
             name=name,
             origin=config.ORIGIN_GENERATED,
             media_type=media_type,
-            prompt=str(job.arguments.get("prompt", "")),
+            prompt=str(job.arguments.get("prompt") or job.arguments.get("text") or ""),
             endpoint=job.endpoint,
             parent_id=job.parent_id,
-            remote_url=url,
+            remote_url="" if url.startswith("demo://") else url,
             meta=meta,
         )
         return asset.id

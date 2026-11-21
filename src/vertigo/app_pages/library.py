@@ -183,7 +183,7 @@ def _render_single(asset: Asset) -> None:
                 i18n.t("metadata.media_type"): asset.media_type or "—",
                 i18n.t("metadata.size"): ui.humanize_bytes(asset.size),
                 i18n.t("metadata.created"): asset.created_at,
-                i18n.t("metadata.model"): asset.endpoint or "—",
+                i18n.t("metadata.model"): config.endpoint_label(asset.endpoint),
             }
             st.write(details)
             if asset.prompt:
@@ -320,7 +320,7 @@ for asset in assets:
             "Type": i18n.t(f"kind.{asset.kind}"),
             "Source": i18n.t(f"origin.{asset.origin}"),
             "Prompt / content": _detail_text(asset),
-            "Model": asset.endpoint or "—",
+            "Model": config.endpoint_label(asset.endpoint),
             "Created": _parse_datetime(asset.created_at),
             "Size": ui.humanize_bytes(asset.size),
         }

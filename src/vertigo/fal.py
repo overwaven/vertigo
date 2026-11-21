@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 import fal_client
 
-from . import config
+from . import config, demo
 from .store import Asset, Library
 
 _USER_AGENT = f"{config.APP_NAME}/0.1 (+https://fal.ai)"
@@ -79,6 +79,11 @@ def has_key() -> bool:
     return resolve_key() is not None
 
 
+def ready() -> bool:
+    """Return True when generations can run (either Demo Mode or a fal key)."""
+    return demo.is_enabled() or has_key()
+
+
 def key_source() -> str:
     return _source
 
@@ -124,6 +129,8 @@ def upload_bytes(data: bytes, media_type: str, filename: str) -> str:
 
 def ensure_remote_url(asset: Asset, library: Library) -> str:
     """Return a fal CDN URL for an asset, uploading it once and caching it."""
+    if demo.is_enabled():
+        return f"demo://asset/{asset.id}"
     if asset.remote_url:
         return asset.remote_url
     path = library.file_path(asset)

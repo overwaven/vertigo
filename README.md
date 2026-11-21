@@ -24,10 +24,10 @@ sign-in.
 
 ## What it does
 
-- **Images** — generate with GPT Image 2.5 / Nano Banana 2, edit with references.
+- **Images** — generate with GPT Image 2.6, Nano Banana 2.1, or Ideogram 4.6, and edit with references.
 - **Vectors** — Recraft vector art, or trace an image into a real SVG.
 - **Enhance** — upscale (Recraft, Topaz) and remove backgrounds (Ideogram).
-- **Speech** — ElevenLabs text-to-speech and Scribe transcription (with `.srt`).
+- **Speech** — ElevenLabs Eleven v4 & Gemini 3.8 Flash text-to-speech, plus Scribe transcription (with `.srt`).
 - **Library** — generations run in the background and are saved locally to
   browse, rename, reuse and delete.
 

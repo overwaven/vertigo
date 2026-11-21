@@ -32,7 +32,7 @@ classifiers = [
 ]
 dependencies = [
     "fal-client>=1.0.1",
-    "streamlit[auth]>=1.63.0",
+    "streamlit[auth]>=1.67.0",
 ]
 
 [project.urls]

@@ -195,6 +195,174 @@ def reset_profile_session() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Parameter icons & selectboxes
+# --------------------------------------------------------------------------- #
+
+
+def param_icon(param_type: str, value: Any) -> str:
+    """Return a Material icon reflecting both the parameter type and its value."""
+    val = str(value or "").strip().lower()
+
+    if param_type == "image_size":
+        return {
+            "auto": ":material/aspect_ratio:",
+            "square_hd": ":material/crop_square:",
+            "square": ":material/crop_square:",
+            "landscape_4_3": ":material/crop_landscape:",
+            "landscape_16_9": ":material/crop_16_9:",
+            "portrait_4_3": ":material/crop_portrait:",
+            "portrait_16_9": ":material/stay_current_portrait:",
+        }.get(val, ":material/aspect_ratio:")
+
+    if param_type == "aspect_ratio":
+        if val == "auto":
+            return ":material/aspect_ratio:"
+        if val == "1:1":
+            return ":material/crop_square:"
+        if val == "16:9":
+            return ":material/crop_16_9:"
+        if val == "3:2":
+            return ":material/crop_3_2:"
+        if val in ("4:3", "5:4"):
+            return ":material/crop_landscape:"
+        if val in ("21:9", "4:1", "8:1"):
+            return ":material/panorama_horizontal:"
+        if val in ("3:4", "4:5", "2:3"):
+            return ":material/crop_portrait:"
+        if val in ("9:16", "1:4", "1:8"):
+            return ":material/panorama_vertical:"
+        return ":material/aspect_ratio:"
+
+    if param_type == "quality":
+        return {
+            "auto": ":material/auto_awesome:",
+            "very_low": ":material/bolt:",
+            "low": ":material/speed:",
+            "medium": ":material/tune:",
+            "high": ":material/high_quality:",
+            "xhigh": ":material/workspace_premium:",
+            "max": ":material/diamond:",
+        }.get(val, ":material/high_quality:")
+
+    if param_type == "background":
+        return {
+            "auto": ":material/auto_awesome:",
+            "transparent": ":material/grid_on:",
+            "opaque": ":material/layers:",
+        }.get(val, ":material/wallpaper:")
+
+    if param_type == "resolution":
+        return {
+            "0.5k": ":material/sd:",
+            "1k": ":material/hd:",
+            "2k": ":material/2k:",
+            "4k": ":material/4k:",
+        }.get(val, ":material/hd:")
+
+    if param_type in ("reasoning_effort", "thinking_level"):
+        return {
+            "minimal": ":material/bolt:",
+            "low": ":material/bolt:",
+            "medium": ":material/psychology:",
+            "high": ":material/neurology:",
+        }.get(val, ":material/psychology:")
+
+    if param_type == "edit_precision":
+        return {
+            "regular": ":material/brush:",
+            "high": ":material/center_focus_strong:",
+        }.get(val, ":material/brush:")
+
+    if param_type == "safety_tolerance":
+        if val in ("1", "2"):
+            return ":material/verified_user:"
+        if val in ("5", "6"):
+            return ":material/gpp_maybe:"
+        return ":material/shield:"
+
+    if param_type == "output_format":
+        return {
+            "png": ":material/image:",
+            "jpeg": ":material/photo:",
+            "jpg": ":material/photo:",
+            "webp": ":material/photo_library:",
+        }.get(val, ":material/image:")
+
+    if param_type == "audio_format":
+        if val.startswith("pcm"):
+            return ":material/graphic_eq:"
+        if val.startswith("opus"):
+            return ":material/music_note:"
+        return ":material/audio_file:"
+
+    if param_type == "voice":
+        return ":material/record_voice_over:"
+
+    if param_type == "text_normalization":
+        return {
+            "auto": ":material/auto_fix_high:",
+            "on": ":material/spellcheck:",
+            "off": ":material/format_clear:",
+        }.get(val, ":material/auto_fix_high:")
+
+    if param_type == "vector_style":
+        if "pixel" in val or "mosaic" in val:
+            return ":material/grid_view:"
+        if "line" in val or "hand_drawn" in val or "engraving" in val or "thin" in val:
+            return ":material/draw:"
+        if "pop" in val or "color" in val or "vivid" in val:
+            return ":material/palette:"
+        if "photo" in val:
+            return ":material/photo:"
+        return ":material/polyline:"
+
+    if param_type == "upscale_model":
+        if "topaz" in val:
+            return ":material/tune:"
+        return ":material/auto_awesome:"
+
+    if param_type == "topaz_model":
+        if "text" in val:
+            return ":material/text_fields:"
+        if "cgi" in val:
+            return ":material/view_in_ar:"
+        if "recovery" in val:
+            return ":material/healing:"
+        if "high fidelity" in val or "max" in val:
+            return ":material/high_quality:"
+        return ":material/auto_fix_high:"
+
+    return ":material/tune:"
+
+
+def icon_selectbox(
+    label: str,
+    options: list[Any],
+    *,
+    param_type: str,
+    key: str,
+    index: int = 0,
+    format_func: Any = str,
+    help: str | None = None,
+    value_map: dict[Any, Any] | None = None,
+) -> Any:
+    """Render a selectbox with a Material icon reflecting its type and value."""
+    current = st.session_state.get(key)
+    if current not in options:
+        current = options[index]
+    icon_value = value_map.get(current, current) if value_map else current
+    return st.selectbox(
+        label,
+        options,
+        index=index,
+        format_func=format_func,
+        key=key,
+        help=help,
+        icon=param_icon(param_type, icon_value),
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Formatting
 # --------------------------------------------------------------------------- #
 
@@ -276,8 +444,8 @@ def srt_from_words(words: Iterable[dict[str, Any]]) -> str:
 
 
 def key_ready(*, inline: bool = True) -> bool:
-    """Return True when a fal key is available, otherwise show guidance."""
-    if fal.has_key():
+    """Return True when generations can run (Demo Mode or fal key)."""
+    if fal.ready():
         return True
     if not inline:
         return False
@@ -301,15 +469,18 @@ def key_ready(*, inline: bool = True) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-THUMB_SIZE = (96, 96)
+THUMB_SIZE = 96
 
 
 @st.cache_data(show_spinner=False, max_entries=1024)
-def _thumbnail_data_url(path: str, is_svg: bool, size: int) -> str | None:
+def _thumbnail_data_url(
+    path: str, is_svg: bool, file_size: int, max_dim: int = THUMB_SIZE
+) -> str | None:
     """Small inline preview for a visual asset.
 
-    ``ImageColumn`` needs a URL or data URL (local paths aren't supported), so
-    images are downscaled with Pillow and base64-encoded. Cached by path+size.
+    ``ImageColumn`` and the reference tray need a URL or data URL (local paths
+    aren't supported), so images are downscaled with Pillow and base64-encoded.
+    Cached by path, file size and target dimension.
     """
     try:
         with open(path, "rb") as handle:
@@ -326,21 +497,25 @@ def _thumbnail_data_url(path: str, is_svg: bool, size: int) -> str | None:
         return None
     try:
         with Image.open(io.BytesIO(data)) as image:
-            image.thumbnail(THUMB_SIZE)
+            image.thumbnail((max_dim, max_dim))
             if image.mode not in ("RGB", "RGBA"):
                 image = image.convert("RGBA")
             buffer = io.BytesIO()
-            image.save(buffer, format="WEBP", quality=72, method=4)
+            image.save(buffer, format="WEBP", quality=82, method=4)
     except Exception:  # noqa: BLE001 - an unreadable image shouldn't break the page
         return None
     return "data:image/webp;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
-def thumbnail_data_url(asset: Asset, library: Library) -> str | None:
+def thumbnail_data_url(
+    asset: Asset, library: Library, *, size: int = THUMB_SIZE
+) -> str | None:
     """A data-URL thumbnail for a visual asset, or None."""
     if not asset.is_visual:
         return None
-    return _thumbnail_data_url(str(library.file_path(asset)), asset.is_svg, asset.size)
+    return _thumbnail_data_url(
+        str(library.file_path(asset)), asset.is_svg, asset.size, size
+    )
 
 
 def thumbnail_table(
@@ -417,6 +592,7 @@ def download_asset_button(
     key: str,
     label: str | None = None,
     type: str = "secondary",
+    width: "int | str" = "content",
 ) -> None:
     data = library.bytes_of(asset)
     if not data:
@@ -432,6 +608,7 @@ def download_asset_button(
         key=key,
         icon=":material/download:",
         type=type,
+        width=width,
     )
 
 
@@ -577,6 +754,39 @@ def transcript_srt(asset: Asset) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
+_JOB_PREVIEW_CSS = """
+<style>
+[class*="st-key-job_preview_single_"] [data-testid="stImage"] img {
+    max-width: min(100%, 360px) !important;
+    max-height: 340px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain;
+    border-radius: 0.5rem;
+}
+[class*="st-key-job_preview_multi_"] [data-testid="stImage"] img {
+    max-width: 100% !important;
+    max-height: 240px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain;
+    border-radius: 0.5rem;
+}
+</style>
+"""
+
+
+def _dismiss_job_button(job: Job, manager: JobManager) -> None:
+    if st.button(
+        i18n.t("jobs.dismiss"),
+        key=f"dismiss_{job.id}",
+        icon=":material/close:",
+        width="stretch",
+    ):
+        manager.clear_finished([job.id])
+        st.rerun()
+
+
 def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> None:
     manager = current_manager()
     # A running job gets one real, animated spinner via `st.status`; finished
@@ -590,8 +800,9 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
             if not job.active:
                 st.markdown(f"{status_icon(job.status)} **{job.label}**")
             st.badge(i18n.t(f"status.{job.status}"), color=status_color(job.status))
+            if job.demo:
+                st.badge(i18n.t("status.demo"), color="violet")
             st.caption(relative_time(job.created_at))
-        st.caption(f"`{job.endpoint}`")
 
         if job.status == "failed":
             st.error(job.error or i18n.t("jobs.failed"), icon=":material/error:")
@@ -600,25 +811,41 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
             with st.expander(i18n.t("common.logs"), icon=":material/terminal:"):
                 st.code("\n".join(job.logs[-40:]), language=None)
 
+        dismiss_rendered = False
+
         if job.status == "completed":
             assets = [a for a in (library.get(i) for i in job.asset_ids) if a]
             if job.summary:
                 st.caption(job.summary)
 
-            for asset in assets:
-                if asset.kind == config.KIND_AUDIO:
-                    st.audio(
-                        library.bytes_of(asset),
-                        format=asset.media_root or "audio/mpeg",
-                    )
-                    with st.container(horizontal=True):
-                        download_asset_button(asset, library, key=f"jdl_{job.id}_{asset.id}")
-                        if on_asset:
-                            on_asset(asset, job)
+            audios = [a for a in assets if a.kind == config.KIND_AUDIO]
+            texts = [a for a in assets if a.kind == config.KIND_TEXT]
+            visuals = [a for a in assets if a.is_visual]
 
-            for asset in assets:
-                if asset.kind != config.KIND_TEXT:
-                    continue
+            for asset in audios:
+                st.audio(
+                    library.bytes_of(asset),
+                    format=asset.media_root or "audio/mpeg",
+                )
+                inline_dismiss = len(audios) == 1 and not texts and not visuals
+                col_count = 1 + (1 if on_asset else 0) + (1 if inline_dismiss else 0)
+                cols = st.columns(col_count, gap="small")
+                idx = 0
+                with cols[idx]:
+                    download_asset_button(
+                        asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
+                    )
+                idx += 1
+                if on_asset:
+                    with cols[idx]:
+                        on_asset(asset, job)
+                    idx += 1
+                if inline_dismiss:
+                    with cols[idx]:
+                        _dismiss_job_button(job, manager)
+                    dismiss_rendered = True
+
+            for asset in texts:
                 st.text_area(
                     i18n.t("common.transcript"),
                     value=library.text_of(asset),
@@ -626,10 +853,18 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
                     key=f"jtxt_{job.id}_{asset.id}",
                     label_visibility="collapsed",
                 )
-                with st.container(horizontal=True):
-                    download_asset_button(asset, library, key=f"jdl_{job.id}_{asset.id}")
-                    srt = transcript_srt(asset)
-                    if srt:
+                srt = transcript_srt(asset)
+                inline_dismiss = len(texts) == 1 and not audios and not visuals
+                col_count = 1 + (1 if srt else 0) + (1 if inline_dismiss else 0)
+                cols = st.columns(col_count, gap="small")
+                idx = 0
+                with cols[idx]:
+                    download_asset_button(
+                        asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
+                    )
+                idx += 1
+                if srt:
+                    with cols[idx]:
                         st.download_button(
                             i18n.t("library.subtitles"),
                             data=srt,
@@ -637,38 +872,71 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
                             mime="text/plain",
                             key=f"jsrt_{job.id}_{asset.id}",
                             icon=":material/subtitles:",
+                            width="stretch",
                         )
+                    idx += 1
+                if inline_dismiss:
+                    with cols[idx]:
+                        _dismiss_job_button(job, manager)
+                    dismiss_rendered = True
 
-            visuals = [a for a in assets if a.is_visual]
-            if visuals:
-                columns = st.columns(min(len(visuals), 4), wrap=False)
+            if len(visuals) == 1:
+                asset = visuals[0]
+                with st.container(key=f"job_preview_single_{job.id}"):
+                    asset_image(asset, library, width=360)
+                inline_dismiss = not audios and not texts
+                col_count = 1 + (1 if on_asset else 0) + (1 if inline_dismiss else 0)
+                cols = st.columns(col_count, gap="small")
+                idx = 0
+                with cols[idx]:
+                    download_asset_button(
+                        asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
+                    )
+                idx += 1
+                if on_asset:
+                    with cols[idx]:
+                        on_asset(asset, job)
+                    idx += 1
+                if inline_dismiss:
+                    with cols[idx]:
+                        _dismiss_job_button(job, manager)
+                    dismiss_rendered = True
+            elif len(visuals) > 1:
+                columns = st.columns(2, gap="small")
                 for index, asset in enumerate(visuals):
-                    with columns[index % len(columns)]:
-                        asset_image(asset, library)
-                        with st.container(horizontal=True):
-                            download_asset_button(
-                                asset, library, key=f"jdl_{job.id}_{asset.id}"
-                            )
+                    with columns[index % 2]:
+                        with st.container(key=f"job_preview_multi_{job.id}_{index}"):
+                            asset_image(asset, library, width="stretch")
                         if on_asset:
-                            on_asset(asset, job)
+                            btn_cols = st.columns(2, gap="small")
+                            with btn_cols[0]:
+                                download_asset_button(
+                                    asset,
+                                    library,
+                                    key=f"jdl_{job.id}_{asset.id}",
+                                    width="stretch",
+                                )
+                            with btn_cols[1]:
+                                on_asset(asset, job)
+                        else:
+                            download_asset_button(
+                                asset,
+                                library,
+                                key=f"jdl_{job.id}_{asset.id}",
+                                width="stretch",
+                            )
 
-        with st.container(horizontal=True):
-            if job.active:
-                if st.button(
-                    i18n.t("jobs.cancel"),
-                    key=f"cancel_{job.id}",
-                    icon=":material/stop_circle:",
-                ):
-                    manager.cancel(job.id)
-                    st.rerun()
-            else:
-                if st.button(
-                    i18n.t("jobs.dismiss"),
-                    key=f"dismiss_{job.id}",
-                    icon=":material/close:",
-                ):
-                    manager.clear_finished([job.id])
-                    st.rerun()
+        if job.active:
+            if st.button(
+                i18n.t("jobs.cancel"),
+                key=f"cancel_{job.id}",
+                icon=":material/stop_circle:",
+                width="stretch",
+            ):
+                manager.cancel(job.id)
+                st.rerun()
+        elif not dismiss_rendered:
+            _dismiss_job_button(job, manager)
 
 
 def render_jobs(
@@ -686,6 +954,7 @@ def render_jobs(
     if not jobs:
         st.caption(i18n.t("jobs.none"))
         return
+    st.html(_JOB_PREVIEW_CSS)
     for job in jobs:
         _render_job(job, library, on_asset)
 

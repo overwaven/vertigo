@@ -130,32 +130,37 @@ AUDIO_UPLOAD_TYPES = ["mp3", "wav", "m4a", "aac", "ogg", "flac", "webm", "mp4"]
 
 IMAGE_MODELS: list[dict[str, Any]] = [
     {
-        "id": "gpt-image-2.5",
-        "label": "GPT Image 2.5",
+        "id": "gpt-image-2.6",
+        "label": "GPT Image 2.6",
         "icon": ":material/auto_awesome:",
-        "tagline": "Precision detail, typography and tight, surgical edits.",
-        "t2i": "openai/gpt-image-2.5/sunburst/text-to-image",
-        "edit": "openai/gpt-image-2.5/sunburst/edit",
+        "tagline": "Precision detail, typography, reasoning control and tight, surgical edits.",
+        "t2i": "openai/gpt-image-2.6/sunburst/text-to-image",
+        "edit": "openai/gpt-image-2.6/sunburst/edit",
         "max_refs": 16,
         "max_images": 10,
         "engine": "openai",
-        "pricing": "Priced per image token — roughly $0.02–$0.25 per image.",
-        "supports_background": True,
-        "supports_quality": True,
     },
     {
-        "id": "nano-banana-2",
-        "label": "Nano Banana 2",
+        "id": "nano-banana-2.1",
+        "label": "Nano Banana 2.1",
         "icon": ":material/bolt:",
-        "tagline": "Google's fast generation and multi-reference editor, up to 4K.",
-        "t2i": "fal-ai/nano-banana-2",
-        "edit": "fal-ai/nano-banana-2/edit",
+        "tagline": "Google's fast generation and multi-reference editor with thinking control, up to 4K.",
+        "t2i": "google/nano-banana-2.1",
+        "edit": "google/nano-banana-2.1/edit",
         "max_refs": 14,
         "max_images": 4,
         "engine": "gemini",
-        "pricing": "$0.08 per image ($0.12 at 2K, $0.16 at 4K).",
-        "supports_background": False,
-        "supports_quality": False,
+    },
+    {
+        "id": "ideogram-4.6",
+        "label": "Ideogram 4.6",
+        "icon": ":material/palette:",
+        "tagline": "Crisp typography, graphic layouts, transparent backgrounds and precise image editing.",
+        "t2i": "ideogram/v4.6",
+        "edit": "ideogram/v4.6/edit",
+        "max_refs": 4,
+        "max_images": 4,
+        "engine": "ideogram",
     },
 ]
 
@@ -171,6 +176,8 @@ GPT_IMAGE_SIZES = [
 ]
 
 GPT_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"]
+
+GPT_REASONING_EFFORTS = ["low", "medium", "high"]
 
 GPT_BACKGROUNDS = ["auto", "transparent", "opaque"]
 
@@ -194,9 +201,17 @@ NANO_ASPECT_RATIOS = [
     "1:8",
 ]
 
-NANO_RESOLUTIONS = ["0.5K", "1K", "2K", "4K"]
+NANO_RESOLUTIONS = ["1K", "2K", "4K"]
+
+NANO_THINKING_LEVELS = ["minimal", "medium", "high"]
 
 SAFETY_TOLERANCES = ["1", "2", "3", "4", "5", "6"]
+
+IDEOGRAM_QUALITIES = ["very_low", "low", "medium", "high"]
+
+IDEOGRAM_BACKGROUNDS = ["opaque", "transparent"]
+
+IDEOGRAM_EDIT_PRECISIONS = ["regular", "high"]
 
 # --------------------------------------------------------------------------- #
 # Vector models
@@ -245,7 +260,6 @@ VECTOR_SIZE_MAP = {
 # --------------------------------------------------------------------------- #
 
 REMOVE_BG_ENDPOINT = "fal-ai/ideogram/remove-background"
-REMOVE_BG_PRICING = "$0.01 per image."
 
 UPSCALE_MODELS: list[dict[str, Any]] = [
     {
@@ -253,7 +267,6 @@ UPSCALE_MODELS: list[dict[str, Any]] = [
         "label": "Recraft — Creative upscale",
         "endpoint": "fal-ai/recraft/upscale/creative",
         "tagline": "Adds crisp, imagined detail while keeping the subject faithful.",
-        "pricing": "$0.25 per image.",
         "engine": "recraft",
     },
     {
@@ -261,7 +274,6 @@ UPSCALE_MODELS: list[dict[str, Any]] = [
         "label": "Topaz — generative upscale",
         "endpoint": "fal-ai/topaz/upscale/image",
         "tagline": "Topaz enhancer with generative models, face recovery and cleanup.",
-        "pricing": "From $0.08 per image depending on output size.",
         "engine": "topaz",
     },
 ]
@@ -282,10 +294,29 @@ TOPAZ_MODELS = [
 # Speech models
 # --------------------------------------------------------------------------- #
 
-TTS_ENDPOINT = "fal-ai/elevenlabs/tts/multilingual-v2"
-TTS_PRICING = "$0.10 per 1,000 characters."
+TTS_MODELS: list[dict[str, Any]] = [
+    {
+        "id": "eleven-v4",
+        "label": "Eleven v4",
+        "icon": ":material/graphic_eq:",
+        "tagline": "Expressive ElevenLabs speech with inline audio tags and pronunciation control.",
+        "endpoint": "elevenlabs/tts/eleven-v4",
+        "engine": "elevenlabs",
+    },
+    {
+        "id": "gemini-3.8-flash-tts",
+        "label": "Gemini 3.8 Flash",
+        "icon": ":material/auto_awesome:",
+        "tagline": "Google's studio-grade speech synthesis with style instructions and 30 voices.",
+        "endpoint": "google/gemini-3.8-flash-tts",
+        "engine": "gemini",
+    },
+]
+
+TTS_MODELS_BY_ID = {m["id"]: m for m in TTS_MODELS}
+
+TTS_ENDPOINT = TTS_MODELS[0]["endpoint"]
 STT_ENDPOINT = "fal-ai/elevenlabs/speech-to-text/scribe-v2"
-STT_PRICING = "$0.008 per input audio minute."
 
 TTS_VOICES = [
     "Rachel",
@@ -311,8 +342,79 @@ TTS_VOICES = [
     "Bill",
 ]
 
+GEMINI_TTS_VOICES = [
+    "Kore",
+    "Puck",
+    "Charon",
+    "Zephyr",
+    "Fenrir",
+    "Aoede",
+    "Leda",
+    "Orus",
+    "Callirrhoe",
+    "Autonoe",
+    "Enceladus",
+    "Iapetus",
+    "Umbriel",
+    "Algieba",
+    "Despina",
+    "Erinome",
+    "Algenib",
+    "Rasalgethi",
+    "Laomedeia",
+    "Achernar",
+    "Alnilam",
+    "Schedar",
+    "Gacrux",
+    "Pulcherrima",
+    "Achird",
+    "Zubenelgenubi",
+    "Vindemiatrix",
+    "Sadachbia",
+    "Sadaltager",
+    "Sulafat",
+]
+
+ELEVEN_OUTPUT_FORMATS = [
+    "mp3_44100_128",
+    "mp3_44100_192",
+    "mp3_44100_64",
+    "pcm_44100",
+    "pcm_24000",
+    "opus_48000_128",
+]
+
 TEXT_NORMALIZATION = ["auto", "on", "off"]
 
 
 def model_by_id(model_id: str) -> dict[str, Any]:
-    return IMAGE_MODELS_BY_ID[model_id]
+    return IMAGE_MODELS_BY_ID.get(model_id, IMAGE_MODELS[0])
+
+
+def tts_model_by_id(model_id: str) -> dict[str, Any]:
+    return TTS_MODELS_BY_ID.get(model_id, TTS_MODELS[0])
+
+
+_ENDPOINT_LABELS: dict[str, str] = {
+    **{m["t2i"]: m["label"] for m in IMAGE_MODELS},
+    **{m["edit"]: m["label"] for m in IMAGE_MODELS},
+    **{m["endpoint"]: m["label"] for m in TTS_MODELS},
+    **{m["endpoint"]: m["label"] for m in UPSCALE_MODELS},
+    VECTOR_ENDPOINT_T2V: "Recraft V3",
+    VECTOR_ENDPOINT_TRACE: "Recraft Vectorize",
+    REMOVE_BG_ENDPOINT: "Ideogram Remove Background",
+    STT_ENDPOINT: "ElevenLabs Scribe v2",
+    # Historical endpoints from earlier releases
+    "openai/gpt-image-2.5/sunburst/text-to-image": "GPT Image 2.5",
+    "openai/gpt-image-2.5/sunburst/edit": "GPT Image 2.5",
+    "fal-ai/nano-banana-2": "Nano Banana 2",
+    "fal-ai/nano-banana-2/edit": "Nano Banana 2",
+    "fal-ai/elevenlabs/tts/multilingual-v2": "ElevenLabs Multilingual v2",
+}
+
+
+def endpoint_label(endpoint: str) -> str:
+    """Return a human-friendly model name for an endpoint string."""
+    if not endpoint:
+        return "—"
+    return _ENDPOINT_LABELS.get(endpoint, endpoint)
