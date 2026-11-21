@@ -13,16 +13,32 @@ user = auth.get_user(ui.current_user_id())
 is_admin = bool(user and user.is_admin)
 
 
-@st.dialog(i18n.t("settings.delete_all"))
+def _dismiss_wipe() -> None:
+    st.session_state.pop("wipe_assets", None)
+
+
+def _dismiss_remove() -> None:
+    st.session_state.pop("remove_user_id", None)
+
+
+@st.dialog(
+    i18n.t("settings.delete_all"),
+    icon=":material/delete_forever:",
+    on_dismiss=_dismiss_wipe,
+)
 def _confirm_wipe() -> None:
-    st.write(i18n.t("settings.wipe_caption"))
-    confirm = st.text_input(i18n.t("settings.wipe_confirm"), key="wipe_confirm")
+    st.markdown(i18n.t("settings.wipe_caption"))
+    confirm = st.text_input(
+        i18n.t("settings.wipe_confirm"),
+        key="wipe_confirm",
+        live=True,
+    )
     with st.container(horizontal=True):
         if st.button(
             i18n.t("settings.delete_all"),
             type="primary",
             icon=":material/delete_forever:",
-            disabled=confirm.strip().upper() != "DELETE",
+            disabled=(confirm or "").strip().upper() != "DELETE",
             key="wipe_go",
         ):
             library.clear(keep_references=False)
@@ -34,14 +50,18 @@ def _confirm_wipe() -> None:
             st.rerun()
 
 
-@st.dialog(i18n.t("settings.remove_profile_title"))
+@st.dialog(
+    i18n.t("settings.remove_profile_title"),
+    icon=":material/person_remove:",
+    on_dismiss=_dismiss_remove,
+)
 def _confirm_remove(user_id: str) -> None:
     target = auth.get_user(user_id)
     if target is None:
         st.session_state.pop("remove_user_id", None)
         st.rerun()
     assert target is not None
-    st.write(i18n.t("settings.remove_profile_body", name=target.name))
+    st.markdown(i18n.t("settings.remove_profile_body", name=target.name))
     remove_data = st.checkbox(i18n.t("settings.remove_profile_data"), value=True)
     with st.container(horizontal=True):
         if st.button(
@@ -88,62 +108,80 @@ def _render_profile() -> None:
 
         name_column, pin_column, out_column = actions.columns(3, gap="small")
 
-        with name_column, st.popover(
-            i18n.t("settings.edit_name"),
-            icon=":material/edit:",
-            width="stretch",
-        ):
-            with st.form("profile_name_form", border=False):
-                new_name = st.text_input(
-                    i18n.t("settings.display_name"), value=user.name
-                )
-                if st.form_submit_button(
-                    i18n.t("settings.save_name"),
-                    icon=":material/save:",
-                    type="primary",
-                    width="stretch",
-                ):
-                    try:
-                        auth.rename_user(user.id, new_name)
-                    except auth.AuthError as exc:
-                        st.error(auth.error_text(exc))
-                    else:
-                        st.session_state["user_name"] = new_name.strip()
-                        st.toast(
-                            i18n.t("toast.name_updated"), icon=":material/check_circle:"
-                        )
-                        st.rerun()
-
-        with pin_column, st.popover(
-            i18n.t("settings.edit_pin"),
-            icon=":material/key:",
-            width="stretch",
-        ):
-            with st.form("profile_pin_form", clear_on_submit=True, border=False):
-                current_pin = st.text_input(i18n.t("settings.current_pin"), type="password")
-                new_pin = st.text_input(i18n.t("settings.new_pin"), type="password")
-                confirm_pin = st.text_input(i18n.t("settings.confirm_pin"), type="password")
-                if st.form_submit_button(
-                    i18n.t("settings.change_pin"),
-                    icon=":material/key:",
-                    type="primary",
-                    width="stretch",
-                ):
-                    if not auth.authenticate(user.id, current_pin):
-                        st.error(i18n.t("settings.pin_wrong"))
-                    elif new_pin != confirm_pin:
-                        st.error(i18n.t("settings.pin_mismatch"))
-                    else:
+        with name_column:
+            name_popover = st.popover(
+                i18n.t("settings.edit_name"),
+                icon=":material/edit:",
+                width="stretch",
+                key="settings_edit_name_popover",
+                on_change="rerun",
+            )
+            if name_popover.open:
+                with name_popover, st.form("profile_name_form", border=False):
+                    new_name = st.text_input(
+                        i18n.t("settings.display_name"),
+                        value=user.name,
+                        required=True,
+                    )
+                    if st.form_submit_button(
+                        i18n.t("settings.save_name"),
+                        icon=":material/save:",
+                        type="primary",
+                        width="stretch",
+                    ):
                         try:
-                            auth.set_pin(user.id, new_pin)
+                            auth.rename_user(user.id, new_name or "")
                         except auth.AuthError as exc:
                             st.error(auth.error_text(exc))
                         else:
+                            st.session_state["user_name"] = (new_name or "").strip()
                             st.toast(
-                                i18n.t("toast.pin_updated"),
-                                icon=":material/check_circle:",
+                                i18n.t("toast.name_updated"), icon=":material/check_circle:"
                             )
                             st.rerun()
+
+        with pin_column:
+            pin_popover = st.popover(
+                i18n.t("settings.edit_pin"),
+                icon=":material/key:",
+                width="stretch",
+                key="settings_edit_pin_popover",
+                on_change="rerun",
+            )
+            if pin_popover.open:
+                with pin_popover, st.form(
+                    "profile_pin_form", clear_on_submit=True, border=False
+                ):
+                    current_pin = st.text_input(
+                        i18n.t("settings.current_pin"), type="password", required=True
+                    )
+                    new_pin = st.text_input(
+                        i18n.t("settings.new_pin"), type="password", required=True
+                    )
+                    confirm_pin = st.text_input(
+                        i18n.t("settings.confirm_pin"), type="password", required=True
+                    )
+                    if st.form_submit_button(
+                        i18n.t("settings.change_pin"),
+                        icon=":material/key:",
+                        type="primary",
+                        width="stretch",
+                    ):
+                        if not auth.authenticate(user.id, current_pin or ""):
+                            st.error(i18n.t("settings.pin_wrong"))
+                        elif new_pin != confirm_pin:
+                            st.error(i18n.t("settings.pin_mismatch"))
+                        else:
+                            try:
+                                auth.set_pin(user.id, new_pin or "")
+                            except auth.AuthError as exc:
+                                st.error(auth.error_text(exc))
+                            else:
+                                st.toast(
+                                    i18n.t("toast.pin_updated"),
+                                    icon=":material/check_circle:",
+                                )
+                                st.rerun()
 
         with out_column:
             if st.button(
@@ -237,12 +275,17 @@ def _render_connection() -> None:
 
 def _render_data() -> None:
     with st.container(border=True):
-        st.markdown(f"**{i18n.t('settings.storage')}**")
+        st.subheader(i18n.t("settings.storage"), icon=":material/hard_drive:")
         st.caption(i18n.t("settings.storage_dir", path=library.home))
         counts = library.counts()
-        metrics = st.columns(4)
-        for column, kind in zip(metrics, config.KINDS):
-            column.metric(i18n.t(f"kind.{kind}"), counts.get(kind, 0))
+        with st.grid(4, gap="small"):
+            for kind in config.KINDS:
+                st.metric(
+                    i18n.t(f"kind.{kind}"),
+                    counts.get(kind, 0),
+                    border=True,
+                    height="stretch",
+                )
         total_size = sum(asset.size for asset in library.all())
         st.caption(
             i18n.t(
@@ -253,7 +296,7 @@ def _render_data() -> None:
         )
 
     with st.container(border=True):
-        st.markdown(f"**{i18n.t('settings.queue')}**")
+        st.subheader(i18n.t("settings.queue"), icon=":material/queue:")
         queue = manager.counts()
         st.caption(
             i18n.t("settings.queue_caption", total=queue["total"], active=queue["active"])
@@ -267,20 +310,18 @@ def _render_data() -> None:
     st.html(
         """
         <style>
-        .st-key-settings_danger,
-        .st-key-settings_danger [data-testid="stVerticalBlockBorderWrapper"] {
+        .st-key-settings_danger {
             border-color: rgba(220, 38, 38, 0.55) !important;
             background-color: rgba(220, 38, 38, 0.06) !important;
         }
+        .st-key-settings_danger h3,
         .st-key-settings_danger strong {
             color: light-dark(#b91c1c, #fca5a5) !important;
         }
-        .st-key-settings_danger [data-testid="stBaseButton-primary"],
         .st-key-settings_danger button[kind="primary"] {
             background-color: #dc2626 !important;
             border-color: #dc2626 !important;
         }
-        .st-key-settings_danger [data-testid="stBaseButton-primary"]:hover,
         .st-key-settings_danger button[kind="primary"]:hover {
             background-color: #b91c1c !important;
             border-color: #b91c1c !important;
@@ -289,7 +330,7 @@ def _render_data() -> None:
         """
     )
     with st.container(border=True, key="settings_danger"):
-        st.markdown(f"**{i18n.t('settings.danger')}**")
+        st.subheader(i18n.t("settings.danger"), icon=":material/warning:")
         st.caption(i18n.t("settings.clear_generated_caption"))
         if st.button(i18n.t("settings.clear_generated"), icon=":material/delete_sweep:"):
             removed = library.clear(keep_references=True)
@@ -319,19 +360,23 @@ def _render_family() -> None:
     assets_col = i18n.t("settings.column.assets")
     actions_col = i18n.t("settings.column.actions")
 
+    badge_admin = i18n.t("settings.badge_admin")
+    badge_default_pin = i18n.t("settings.badge_default_pin")
+    badge_you = i18n.t("settings.badge_you")
+
     rows = []
     for member in members:
         roles = []
         if member.is_admin:
-            roles.append(i18n.t("settings.badge_admin"))
+            roles.append(badge_admin)
         if member.must_change_pin:
-            roles.append(i18n.t("settings.badge_default_pin"))
+            roles.append(badge_default_pin)
         if member.id == user.id:
-            roles.append(i18n.t("settings.badge_you"))
+            roles.append(badge_you)
         rows.append(
             {
                 name_col: member.name,
-                role_col: " · ".join(roles),
+                role_col: roles,
                 assets_col: get_library(member.id).counts()["total"],
                 actions_col: (
                     ""
@@ -353,38 +398,44 @@ def _render_family() -> None:
     with caption_col:
         st.caption(i18n.t("settings.family_caption"))
     with add_col:
-        with st.popover(
+        add_popover = st.popover(
             i18n.t("settings.add_profile"),
             icon=":material/person_add:",
             width="stretch",
-        ):
-            with st.form("add_profile_form", clear_on_submit=True, border=False):
-                name = st.text_input(
-                    i18n.t("settings.new_profile_name"),
-                    placeholder=i18n.t("settings.new_profile_name_placeholder"),
-                )
-                pin = st.text_input(
-                    i18n.t("settings.new_profile_pin"),
-                    type="password",
-                    placeholder=i18n.t("settings.new_profile_pin_placeholder"),
-                )
-                add = st.form_submit_button(
-                    i18n.t("settings.add_profile"),
-                    icon=":material/person_add:",
-                    type="primary",
-                    width="stretch",
-                )
-            if add:
-                try:
-                    auth.create_user(name, pin)
-                except auth.AuthError as exc:
-                    st.error(auth.error_text(exc))
-                else:
-                    st.toast(
-                        i18n.t("toast.profile_added", name=name.strip()),
-                        icon=":material/person_add:",
+            key="settings_add_profile_popover",
+            on_change="rerun",
+        )
+        if add_popover.open:
+            with add_popover:
+                with st.form("add_profile_form", clear_on_submit=True, border=False):
+                    name = st.text_input(
+                        i18n.t("settings.new_profile_name"),
+                        placeholder=i18n.t("settings.new_profile_name_placeholder"),
+                        required=True,
                     )
-                    st.rerun()
+                    pin = st.text_input(
+                        i18n.t("settings.new_profile_pin"),
+                        type="password",
+                        placeholder=i18n.t("settings.new_profile_pin_placeholder"),
+                        required=True,
+                    )
+                    add = st.form_submit_button(
+                        i18n.t("settings.add_profile"),
+                        icon=":material/person_add:",
+                        type="primary",
+                        width="stretch",
+                    )
+                if add:
+                    try:
+                        auth.create_user(name or "", pin or "")
+                    except auth.AuthError as exc:
+                        st.error(auth.error_text(exc))
+                    else:
+                        st.toast(
+                            i18n.t("toast.profile_added", name=(name or "").strip()),
+                            icon=":material/person_add:",
+                        )
+                        st.rerun()
 
     st.dataframe(
         rows,
@@ -393,7 +444,12 @@ def _render_family() -> None:
         key="settings_profiles_table",
         column_config={
             name_col: st.column_config.TextColumn(name_col, width="medium"),
-            role_col: st.column_config.TextColumn(role_col, width="medium"),
+            role_col: st.column_config.MultiselectColumn(
+                role_col,
+                width="medium",
+                options=[badge_admin, badge_default_pin, badge_you],
+                color=["blue", "orange", "green"],
+            ),
             assets_col: st.column_config.NumberColumn(assets_col, width="small"),
             actions_col: st.column_config.ButtonColumn(
                 actions_col,
@@ -402,6 +458,7 @@ def _render_family() -> None:
                 key="settings_remove_click",
             ),
         },
+        alt=i18n.t("settings.family_table_alt"),
     )
 
 
@@ -411,7 +468,7 @@ def _render_family() -> None:
 
 
 def _render_about() -> None:
-    st.write(
+    st.markdown(
         i18n.t(
             "settings.about_text",
             app=config.APP_NAME,
@@ -435,21 +492,32 @@ if is_admin:
 TAB_KEYS.append("about")
 
 panels = dict(
-    zip(TAB_KEYS, st.tabs([i18n.t(f"settings.tab.{key}") for key in TAB_KEYS]))
+    zip(
+        TAB_KEYS,
+        st.tabs(
+            [i18n.t(f"settings.tab.{key}") for key in TAB_KEYS],
+            key="settings_tabs",
+            on_change="rerun",
+        ),
+    )
 )
 
-with panels["profile"]:
-    _render_profile()
+if panels["profile"].open:
+    with panels["profile"]:
+        _render_profile()
 
-with panels["connection"]:
-    _render_connection()
+if panels["connection"].open:
+    with panels["connection"]:
+        _render_connection()
 
-with panels["data"]:
-    _render_data()
+if panels["data"].open:
+    with panels["data"]:
+        _render_data()
 
-if is_admin:
+if is_admin and panels["family"].open:
     with panels["family"]:
         _render_family()
 
-with panels["about"]:
-    _render_about()
+if panels["about"].open:
+    with panels["about"]:
+        _render_about()

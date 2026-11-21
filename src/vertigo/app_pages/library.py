@@ -76,7 +76,19 @@ def _clear_selection() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@st.dialog(i18n.t("library.confirm_delete"))
+def _dismiss_delete() -> None:
+    st.session_state.pop("delete_asset_ids", None)
+
+
+def _dismiss_rename() -> None:
+    st.session_state.pop("rename_asset_id", None)
+
+
+@st.dialog(
+    i18n.t("library.confirm_delete"),
+    icon=":material/delete:",
+    on_dismiss=_dismiss_delete,
+)
 def _confirm_delete(asset_ids: list[str]) -> None:
     assets = [a for a in (library.get(i) for i in asset_ids) if a is not None]
     if not assets:
@@ -84,9 +96,9 @@ def _confirm_delete(asset_ids: list[str]) -> None:
         st.rerun()
 
     if len(assets) == 1:
-        st.write(i18n.t("library.delete_single", name=assets[0].name))
+        st.markdown(i18n.t("library.delete_single", name=assets[0].name))
     else:
-        st.write(i18n.t("library.delete_multi", count=len(assets)))
+        st.markdown(i18n.t("library.delete_multi", count=len(assets)))
         st.caption(", ".join(a.name for a in assets[:10]))
 
     with st.container(horizontal=True):
@@ -107,7 +119,11 @@ def _confirm_delete(asset_ids: list[str]) -> None:
             st.rerun()
 
 
-@st.dialog(i18n.t("library.rename_title"))
+@st.dialog(
+    i18n.t("library.rename_title"),
+    icon=":material/edit:",
+    on_dismiss=_dismiss_rename,
+)
 def _confirm_rename(asset_id: str) -> None:
     asset = library.get(asset_id)
     if asset is None:
@@ -115,7 +131,10 @@ def _confirm_rename(asset_id: str) -> None:
         st.rerun()
     assert asset is not None
     new_name = st.text_input(
-        i18n.t("library.rename_label"), value=asset.name, key="rename_input"
+        i18n.t("library.rename_label"),
+        value=asset.name,
+        key="rename_input",
+        required=True,
     )
     with st.container(horizontal=True):
         if st.button(
@@ -124,7 +143,7 @@ def _confirm_rename(asset_id: str) -> None:
             icon=":material/save:",
             key="rename_save",
         ):
-            clean = new_name.strip()
+            clean = (new_name or "").strip()
             if clean:
                 if not Path(clean).suffix:
                     clean = f"{clean}{Path(asset.name).suffix}"
@@ -162,7 +181,11 @@ def _render_single(asset: Asset) -> None:
 
         with preview:
             if asset.kind == config.KIND_AUDIO:
-                st.audio(library.bytes_of(asset), format=asset.media_root or "audio/mpeg")
+                st.audio(
+                    library.bytes_of(asset),
+                    format=asset.media_root or "audio/mpeg",
+                    alt=asset.name,
+                )
             elif asset.kind == config.KIND_TEXT:
                 st.text_area(
                     i18n.t("common.transcript"),
@@ -178,14 +201,22 @@ def _render_single(asset: Asset) -> None:
             st.markdown(f"**{asset.name}**")
             st.caption(ui.asset_caption(asset))
             details = {
-                i18n.t("metadata.kind"): i18n.t(f"kind.{asset.kind}"),
+                i18n.t("metadata.kind"): (
+                    f"{config.KIND_ICONS.get(asset.kind, '')} "
+                    f"{i18n.t(f'kind.{asset.kind}')}"
+                ).strip(),
                 i18n.t("metadata.source"): i18n.t(f"origin.{asset.origin}"),
                 i18n.t("metadata.media_type"): asset.media_type or "—",
                 i18n.t("metadata.size"): ui.humanize_bytes(asset.size),
                 i18n.t("metadata.created"): asset.created_at,
                 i18n.t("metadata.model"): config.endpoint_label(asset.endpoint),
             }
-            st.write(details)
+            st.table(
+                details,
+                border="horizontal",
+                width="content",
+                alt=i18n.t("library.details_alt"),
+            )
             if asset.prompt:
                 st.caption(i18n.t("library.prompt_prefix", prompt=asset.prompt))
 
@@ -204,7 +235,7 @@ def _render_single(asset: Asset) -> None:
                     icon=":material/edit:",
                 ):
                     st.session_state["rename_asset_id"] = asset.id
-                    st.rerun()
+                    st.rerun(scope="app")
                 if asset.kind == config.KIND_TEXT:
                     srt = ui.transcript_srt(asset)
                     if srt:
@@ -222,7 +253,7 @@ def _render_single(asset: Asset) -> None:
                     icon=":material/delete:",
                 ):
                     st.session_state["delete_asset_ids"] = [asset.id]
-                    st.rerun()
+                    st.rerun(scope="app")
 
 
 def _render_many(assets: list[Asset]) -> None:
@@ -244,7 +275,7 @@ def _render_many(assets: list[Asset]) -> None:
                 icon=":material/delete:",
             ):
                 st.session_state["delete_asset_ids"] = [a.id for a in assets]
-                st.rerun()
+                st.rerun(scope="app")
 
 
 def _render_selection(selected: list[Asset]) -> None:
@@ -261,101 +292,127 @@ def _render_selection(selected: list[Asset]) -> None:
 # Page
 # --------------------------------------------------------------------------- #
 
-if st.session_state.pop("_clear_library_selection", False):
-    st.session_state["library_table"] = {"selection": {"rows": []}}
-
 if st.session_state.get("delete_asset_ids"):
     _confirm_delete(st.session_state["delete_asset_ids"])
 
 if st.session_state.get("rename_asset_id"):
     _confirm_rename(st.session_state["rename_asset_id"])
 
-filters = st.columns([2, 1, 2])
-with filters[0]:
-    kind_choice = st.segmented_control(
-        i18n.t("library.column.type"),
-        list(KIND_FILTERS),
-        default="all",
-        format_func=lambda key: i18n.t(f"filter.{key}"),
-        key="lib_kind",
-    )
-with filters[1]:
-    origin_choice = st.selectbox(
-        i18n.t("library.column.source"),
-        list(ORIGINS),
-        format_func=lambda key: i18n.t(f"origin_filter.{key}"),
-        key="lib_origin",
-    )
-with filters[2]:
-    search = st.text_input(
-        i18n.t("library.search"),
-        placeholder=i18n.t("library.search_placeholder"),
-        key="lib_search",
-        icon=":material/search:",
-    )
 
-assets = library.newest_first(
-    library.filter(
-        kinds=KIND_FILTERS.get(kind_choice or "all"),
-        origins=ORIGINS.get(origin_choice or "all"),
-        search=search,
-    )
-)
+@st.fragment
+def _render_library() -> None:
+    i18n.set_language(ui.current_language())
+    if st.session_state.pop("_clear_library_selection", False):
+        st.session_state["library_table"] = {"selection": {"rows": []}}
 
-if not assets:
-    st.info(i18n.t("library.nothing"), icon=":material/folder_open:")
-    st.stop()
+    filters = st.columns([2, 1, 2], vertical_alignment="bottom")
+    with filters[0]:
+        kind_choice = st.segmented_control(
+            i18n.t("library.column.type"),
+            list(KIND_FILTERS),
+            default="all",
+            required=True,
+            format_func=lambda key: i18n.t(f"filter.{key}"),
+            key="lib_kind",
+            persist_state="session",
+        )
+    with filters[1]:
+        origin_choice = st.selectbox(
+            i18n.t("library.column.source"),
+            list(ORIGINS),
+            format_func=lambda key: i18n.t(f"origin_filter.{key}"),
+            key="lib_origin",
+            persist_state="session",
+        )
+    with filters[2]:
+        search = st.text_input(
+            i18n.t("library.search"),
+            type="search",
+            live="300ms",
+            placeholder=i18n.t("library.search_placeholder"),
+            key="lib_search",
+            persist_state="session",
+        )
 
-rows: list[dict[str, Any]] = []
-thumbnails = THUMB_LIMIT
-for asset in assets:
-    preview = None
-    if asset.is_visual and thumbnails > 0:
-        preview = ui.thumbnail_data_url(asset, library)
-        thumbnails -= 1
-    rows.append(
-        {
-            "Preview": preview,
-            "Name": asset.name,
-            "Type": i18n.t(f"kind.{asset.kind}"),
-            "Source": i18n.t(f"origin.{asset.origin}"),
-            "Prompt / content": _detail_text(asset),
-            "Model": config.endpoint_label(asset.endpoint),
-            "Created": _parse_datetime(asset.created_at),
-            "Size": ui.humanize_bytes(asset.size),
-        }
+    assets = library.newest_first(
+        library.filter(
+            kinds=KIND_FILTERS.get(kind_choice or "all"),
+            origins=ORIGINS.get(origin_choice or "all"),
+            search=search,
+        )
     )
 
-st.caption(i18n.t("library.count", count=len(assets)))
-state = st.dataframe(
-    rows,
-    key="library_table",
-    hide_index=True,
-    height=560,
-    on_select="rerun",
-    selection_mode="multi-row",
-    column_order=("Preview", "Name", "Type", "Created", "Prompt / content", "Size"),
-    column_config={
-        "Preview": st.column_config.ImageColumn(i18n.t("library.column.preview"), width="small"),
-        "Name": st.column_config.TextColumn(i18n.t("library.column.name"), width="medium"),
-        "Type": st.column_config.TextColumn(i18n.t("library.column.type"), width="small"),
-        "Source": st.column_config.TextColumn(i18n.t("library.column.source"), width="small"),
-        "Prompt / content": st.column_config.TextColumn(
-            i18n.t("library.column.prompt"), width="large"
-        ),
-        "Model": st.column_config.TextColumn(i18n.t("library.column.model"), width="medium"),
-        "Created": st.column_config.DatetimeColumn(
-            i18n.t("library.column.created"),
-            width="small",
-            format=i18n.t("library.date_format"),
-        ),
-        "Size": st.column_config.TextColumn(i18n.t("library.column.size"), width="small"),
-    },
-    placeholder="—",
-)
+    if not assets:
+        st.info(i18n.t("library.nothing"), icon=":material/folder_open:")
+        return
 
-positions = list(state.selection.rows) if state is not None else []
-selected = [assets[i] for i in positions if 0 <= i < len(assets)]
+    kind_options = [i18n.t(f"kind.{k}") for k in config.KINDS]
+    origin_options = [i18n.t(f"origin.{o}") for o in config.ORIGINS]
 
-st.subheader(i18n.t("library.selection"), icon=":material/checklist:")
-_render_selection(selected)
+    rows: list[dict[str, Any]] = []
+    thumbnails = THUMB_LIMIT
+    for asset in assets:
+        preview = None
+        if asset.is_visual and thumbnails > 0:
+            preview = ui.thumbnail_data_url(asset, library)
+            thumbnails -= 1
+        rows.append(
+            {
+                "Preview": preview,
+                "Name": asset.name,
+                "Type": [i18n.t(f"kind.{asset.kind}")],
+                "Source": [i18n.t(f"origin.{asset.origin}")],
+                "Prompt / content": _detail_text(asset),
+                "Model": config.endpoint_label(asset.endpoint),
+                "Created": _parse_datetime(asset.created_at),
+                "Size": ui.humanize_bytes(asset.size),
+            }
+        )
+
+    st.caption(i18n.t("library.count", count=len(assets)))
+    state = st.dataframe(
+        rows,
+        key="library_table",
+        hide_index=True,
+        height=560,
+        on_select="rerun",
+        selection_mode="multi-row",
+        column_order=("Preview", "Name", "Type", "Created", "Prompt / content", "Size"),
+        column_config={
+            "Preview": st.column_config.ImageColumn(i18n.t("library.column.preview"), width="small"),
+            "Name": st.column_config.TextColumn(i18n.t("library.column.name"), width="medium"),
+            "Type": st.column_config.MultiselectColumn(
+                i18n.t("library.column.type"),
+                width="small",
+                options=kind_options,
+                color="auto",
+            ),
+            "Source": st.column_config.MultiselectColumn(
+                i18n.t("library.column.source"),
+                width="small",
+                options=origin_options,
+                color="auto",
+            ),
+            "Prompt / content": st.column_config.TextColumn(
+                i18n.t("library.column.prompt"), width="large"
+            ),
+            "Model": st.column_config.TextColumn(i18n.t("library.column.model"), width="medium"),
+            "Created": st.column_config.DatetimeColumn(
+                i18n.t("library.column.created"),
+                width="small",
+                format=i18n.t("library.date_format"),
+            ),
+            "Size": st.column_config.TextColumn(i18n.t("library.column.size"), width="small"),
+        },
+        placeholder="—",
+        alt=i18n.t("library.table_alt"),
+    )
+
+    positions = list(state.selection.rows) if state is not None else []
+    selected = [assets[i] for i in positions if 0 <= i < len(assets)]
+
+    st.subheader(i18n.t("library.selection"), icon=":material/checklist:")
+    _render_selection(selected)
+
+
+_render_library()

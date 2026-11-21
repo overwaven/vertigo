@@ -84,9 +84,9 @@ def _brand_logo(width: int = 92) -> None:
     """Show the Vertigo mark, falling back to the material icon."""
     source = _brand_source(width=max(96, width * 2))
     if source is not None:
-        st.image(source, width=width)
+        st.image(source, width=width, alt="")
     else:
-        st.markdown("## :material/cyclone:")
+        st.header(":material/cyclone:")
 
 
 def _telegram_login_screen() -> None:
@@ -94,7 +94,7 @@ def _telegram_login_screen() -> None:
     _, middle, _ = st.columns([1, 1.3, 1])
     with middle:
         _brand_logo()
-        st.markdown("## Vertigo")
+        st.header("Vertigo")
         st.caption("Sign in with Telegram to continue.")
         ui.language_switch("")
         try:
@@ -151,7 +151,7 @@ def _login_screen() -> None:
     _, middle, _ = st.columns([1, 1.3, 1])
     with middle:
         _brand_logo()
-        st.markdown(f"## {i18n.t('login.title')}")
+        st.header(i18n.t("login.title"))
         st.caption(i18n.t("login.subtitle"))
         ui.language_switch("")
 
@@ -163,7 +163,7 @@ def _login_screen() -> None:
         options = {member.name: member.id for member in users}
         with st.form("login_form"):
             choice = st.selectbox(i18n.t("login.profile"), list(options))
-            pin = st.text_input(i18n.t("login.pin"), type="password")
+            pin = st.text_input(i18n.t("login.pin"), type="password", required=True)
             remember = st.checkbox(i18n.t("login.remember"), value=True)
             submitted = st.form_submit_button(
                 i18n.t("login.sign_in"), type="primary", icon=":material/login:"
@@ -215,43 +215,54 @@ PAGE_DEFS = [
         "title": i18n.t("nav.home"),
         "icon": ":material/cyclone:",
         "section": "",
+        "help": i18n.t("nav.home.help"),
     },
     {
         "path": "app_pages/studio.py",
         "title": i18n.t("nav.studio"),
         "icon": ":material/auto_awesome:",
         "section": i18n.t("section.create"),
+        "help": i18n.t("nav.studio.help"),
     },
     {
         "path": "app_pages/enhance.py",
         "title": i18n.t("nav.enhance"),
         "icon": ":material/high_quality:",
         "section": i18n.t("section.create"),
+        "help": i18n.t("nav.enhance.help"),
     },
     {
         "path": "app_pages/speech.py",
         "title": i18n.t("nav.speech"),
         "icon": ":material/record_voice_over:",
         "section": i18n.t("section.create"),
+        "help": i18n.t("nav.speech.help"),
     },
     {
         "path": "app_pages/library.py",
         "title": i18n.t("nav.library"),
         "icon": ":material/photo_library:",
         "section": i18n.t("section.manage"),
+        "help": i18n.t("nav.library.help"),
     },
     {
         "path": "app_pages/settings.py",
         "title": i18n.t("nav.settings"),
         "icon": ":material/settings:",
         "section": i18n.t("section.manage"),
+        "help": i18n.t("nav.settings.help"),
     },
 ]
 
 _sections: dict[str, list[st.Page]] = {}
 for definition in PAGE_DEFS:
     _sections.setdefault(definition["section"], []).append(
-        st.Page(definition["path"], title=definition["title"], icon=definition["icon"])
+        st.Page(
+            definition["path"],
+            title=definition["title"],
+            icon=definition["icon"],
+            help=definition["help"],
+        )
     )
 
 page = st.navigation(_sections, position="top")

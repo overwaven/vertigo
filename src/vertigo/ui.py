@@ -134,6 +134,7 @@ def language_switch(label: str | None = None) -> None:
         label or i18n.t("language.label"),
         options=list(i18n.LANGUAGES),
         default=current,
+        required=True,
         format_func=i18n.language_label,
         key=f"lang_switch_{current}",
         label_visibility="collapsed" if label == "" else "visible",
@@ -518,6 +519,14 @@ def thumbnail_data_url(
     )
 
 
+def _asset_alt(asset: Asset) -> str:
+    """Short plain-text accessible name for a visual or audio asset."""
+    prompt = " ".join((asset.prompt or "").split())
+    if prompt:
+        return prompt[:120] + ("…" if len(prompt) > 120 else "")
+    return asset.name or asset.id
+
+
 def thumbnail_table(
     library: Library,
     assets: list[Asset],
@@ -526,6 +535,7 @@ def thumbnail_table(
     height: int = 240,
     selection_mode: str = "multi-row",
     selection_default: dict[str, Any] | None = None,
+    alt: str | None = None,
 ) -> list[Asset]:
     """A selectable table of visual assets with inline thumbnails.
 
@@ -558,6 +568,7 @@ def thumbnail_table(
             ),
         },
         placeholder="—",
+        alt=alt or i18n.t("common.picker_alt"),
     )
     positions = list(state.selection.rows) if state is not None else []
     return [assets[index] for index in positions if 0 <= index < len(assets)]
@@ -572,13 +583,14 @@ def asset_image(asset: Asset, library: Library, *, width: "int | str" = "stretch
     if not path or not path.exists():
         st.caption(i18n.t("error.missing_file"))
         return
+    alt = _asset_alt(asset)
     if asset.is_svg:
         try:
-            st.image(path.read_text(encoding="utf-8"), width=width)
+            st.image(path.read_text(encoding="utf-8"), width=width, alt=alt)
         except (OSError, UnicodeDecodeError):
             st.caption(i18n.t("error.render_svg"))
     else:
-        st.image(str(path), width=width)
+        st.image(str(path), width=width, alt=alt)
 
 
 def asset_media(asset: Asset, library: Library) -> bytes:
@@ -631,13 +643,12 @@ def asset_grid(
     if not assets:
         st.caption(empty_message or i18n.t("common.asset_empty"))
         return
-    grid = st.columns(columns, gap="small", wrap=False)
-    for index, asset in enumerate(assets):
-        with grid[index % columns]:
-            with st.container(border=True, height="stretch"):
-                asset_image(asset, library)
-                st.caption(asset.name)
-                st.caption(asset_caption(asset))
+    grid = st.grid(columns, gap="small", border=True)
+    for asset in assets:
+        with grid.cell():
+            asset_image(asset, library)
+            st.caption(asset.name)
+            st.caption(asset_caption(asset))
 
 
 # --------------------------------------------------------------------------- #
@@ -756,7 +767,7 @@ def transcript_srt(asset: Asset) -> str | None:
 
 _JOB_PREVIEW_CSS = """
 <style>
-[class*="st-key-job_preview_single_"] [data-testid="stImage"] img {
+[class*="st-key-job_preview_single_"] img {
     max-width: min(100%, 360px) !important;
     max-height: 340px !important;
     width: auto !important;
@@ -764,7 +775,7 @@ _JOB_PREVIEW_CSS = """
     object-fit: contain;
     border-radius: 0.5rem;
 }
-[class*="st-key-job_preview_multi_"] [data-testid="stImage"] img {
+[class*="st-key-job_preview_multi_"] img {
     max-width: 100% !important;
     max-height: 240px !important;
     width: auto !important;
@@ -826,24 +837,18 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
                 st.audio(
                     library.bytes_of(asset),
                     format=asset.media_root or "audio/mpeg",
+                    alt=asset.name,
                 )
                 inline_dismiss = len(audios) == 1 and not texts and not visuals
-                col_count = 1 + (1 if on_asset else 0) + (1 if inline_dismiss else 0)
-                cols = st.columns(col_count, gap="small")
-                idx = 0
-                with cols[idx]:
+                with st.container(horizontal=True, gap="small"):
                     download_asset_button(
                         asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
                     )
-                idx += 1
-                if on_asset:
-                    with cols[idx]:
+                    if on_asset:
                         on_asset(asset, job)
-                    idx += 1
-                if inline_dismiss:
-                    with cols[idx]:
+                    if inline_dismiss:
                         _dismiss_job_button(job, manager)
-                    dismiss_rendered = True
+                        dismiss_rendered = True
 
             for asset in texts:
                 st.text_area(
@@ -855,16 +860,11 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
                 )
                 srt = transcript_srt(asset)
                 inline_dismiss = len(texts) == 1 and not audios and not visuals
-                col_count = 1 + (1 if srt else 0) + (1 if inline_dismiss else 0)
-                cols = st.columns(col_count, gap="small")
-                idx = 0
-                with cols[idx]:
+                with st.container(horizontal=True, gap="small"):
                     download_asset_button(
                         asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
                     )
-                idx += 1
-                if srt:
-                    with cols[idx]:
+                    if srt:
                         st.download_button(
                             i18n.t("library.subtitles"),
                             data=srt,
@@ -874,57 +874,39 @@ def _render_job(job: Job, library: Library, on_asset: "Any | None" = None) -> No
                             icon=":material/subtitles:",
                             width="stretch",
                         )
-                    idx += 1
-                if inline_dismiss:
-                    with cols[idx]:
+                    if inline_dismiss:
                         _dismiss_job_button(job, manager)
-                    dismiss_rendered = True
+                        dismiss_rendered = True
 
             if len(visuals) == 1:
                 asset = visuals[0]
                 with st.container(key=f"job_preview_single_{job.id}"):
                     asset_image(asset, library, width=360)
                 inline_dismiss = not audios and not texts
-                col_count = 1 + (1 if on_asset else 0) + (1 if inline_dismiss else 0)
-                cols = st.columns(col_count, gap="small")
-                idx = 0
-                with cols[idx]:
+                with st.container(horizontal=True, gap="small"):
                     download_asset_button(
                         asset, library, key=f"jdl_{job.id}_{asset.id}", width="stretch"
                     )
-                idx += 1
-                if on_asset:
-                    with cols[idx]:
+                    if on_asset:
                         on_asset(asset, job)
-                    idx += 1
-                if inline_dismiss:
-                    with cols[idx]:
+                    if inline_dismiss:
                         _dismiss_job_button(job, manager)
-                    dismiss_rendered = True
+                        dismiss_rendered = True
             elif len(visuals) > 1:
-                columns = st.columns(2, gap="small")
+                preview_grid = st.grid(2, gap="small")
                 for index, asset in enumerate(visuals):
-                    with columns[index % 2]:
+                    with preview_grid.cell():
                         with st.container(key=f"job_preview_multi_{job.id}_{index}"):
                             asset_image(asset, library, width="stretch")
-                        if on_asset:
-                            btn_cols = st.columns(2, gap="small")
-                            with btn_cols[0]:
-                                download_asset_button(
-                                    asset,
-                                    library,
-                                    key=f"jdl_{job.id}_{asset.id}",
-                                    width="stretch",
-                                )
-                            with btn_cols[1]:
-                                on_asset(asset, job)
-                        else:
+                        with st.container(horizontal=True, gap="small"):
                             download_asset_button(
                                 asset,
                                 library,
                                 key=f"jdl_{job.id}_{asset.id}",
                                 width="stretch",
                             )
+                            if on_asset:
+                                on_asset(asset, job)
 
         if job.active:
             if st.button(
@@ -961,6 +943,7 @@ def render_jobs(
 
 @st.fragment(run_every=2)
 def _live_jobs(job_ids: list[str], title: str | None, on_asset: "Any | None") -> None:
+    i18n.set_language(current_language())
     render_jobs(job_ids, title=title, on_asset=on_asset)
     if not current_manager().active_jobs(job_ids):
         # Everything finished — hand back to a static render.

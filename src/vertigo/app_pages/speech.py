@@ -148,12 +148,14 @@ ui.key_ready()
 tts_label = i18n.t("speech.mode_tts")
 stt_label = i18n.t("speech.mode_stt")
 mode = st.segmented_control(
-    "speech_mode",
+    i18n.t("speech.mode_label"),
     [TTS, STT],
     default=TTS,
+    required=True,
     format_func=lambda value: tts_label if value == TTS else stt_label,
     key="speech_mode",
     label_visibility="collapsed",
+    persist_state="session",
 )
 
 left, right = st.columns([2, 3], gap="large")
@@ -213,6 +215,7 @@ with left:
                 ),
                 key="tts_model",
                 required=True,
+                persist_state="session",
                 help="\n\n".join(
                     i18n.t(f"models.{m['id']}.tagline") for m in config.TTS_MODELS
                 ),

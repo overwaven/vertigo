@@ -21,21 +21,34 @@ if not fal.ready():
         icon=":material/settings:",
     )
 
-metrics = st.columns(4)
-metrics[0].metric(i18n.t("home.metric.library"), counts["total"])
-metrics[1].metric(
-    i18n.t("home.metric.visual"),
-    counts[config.KIND_IMAGE] + counts[config.KIND_VECTOR],
-)
-metrics[2].metric(
-    i18n.t("home.metric.speech"),
-    counts[config.KIND_AUDIO] + counts[config.KIND_TEXT],
-)
-metrics[3].metric(i18n.t("home.metric.jobs"), queue["active"])
+with st.grid(4, gap="small"):
+    st.metric(
+        i18n.t("home.metric.library"),
+        counts["total"],
+        border=True,
+        height="stretch",
+    )
+    st.metric(
+        i18n.t("home.metric.visual"),
+        counts[config.KIND_IMAGE] + counts[config.KIND_VECTOR],
+        border=True,
+        height="stretch",
+    )
+    st.metric(
+        i18n.t("home.metric.speech"),
+        counts[config.KIND_AUDIO] + counts[config.KIND_TEXT],
+        border=True,
+        height="stretch",
+    )
+    st.metric(
+        i18n.t("home.metric.jobs"),
+        queue["active"],
+        border=True,
+        height="stretch",
+    )
 
 st.subheader(i18n.t("home.start"), icon=":material/bolt:")
 
-cards = st.columns(3)
 _card_content = [
     (
         ":material/auto_awesome:",
@@ -56,10 +69,11 @@ _card_content = [
         "app_pages/speech.py",
     ),
 ]
-for column, (icon, title, body, path) in zip(cards, _card_content):
-    with column, st.container(border=True, height="stretch"):
-        st.markdown(f"### {icon} {title}")
-        st.write(body)
+cards_grid = st.grid(3, gap="small", border=True)
+for icon, title, body, path in _card_content:
+    with cards_grid.cell():
+        st.subheader(title, icon=icon)
+        st.markdown(body)
         st.space("stretch")
         st.page_link(
             path,
@@ -82,9 +96,14 @@ if audio_and_text:
     for asset in audio_and_text:
         with st.container(border=True):
             if asset.kind == config.KIND_AUDIO:
-                st.audio(library.bytes_of(asset), format=asset.media_root or "audio/mpeg")
+                st.audio(
+                    library.bytes_of(asset),
+                    format=asset.media_root or "audio/mpeg",
+                    alt=asset.name,
+                )
                 st.caption(f"{asset.name} · {ui.relative_time(asset.created_at)}")
             else:
                 st.markdown(f"{config.KIND_ICONS[asset.kind]} **{asset.name}**")
                 st.caption(ui.relative_time(asset.created_at))
-                st.write(library.text_of(asset)[:280] + ("…" if len(library.text_of(asset)) > 280 else ""))
+                text = library.text_of(asset)
+                st.text(text[:280] + ("…" if len(text) > 280 else ""))

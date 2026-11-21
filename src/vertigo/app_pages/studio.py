@@ -40,31 +40,35 @@ def _reference_tray() -> list[str]:
             help=i18n.t("studio.refs.help"),
         )
     with library_column:
-        with st.popover(
+        lib_popover = st.popover(
             i18n.t("studio.refs.from_library"),
             icon=":material/photo_library:",
             width="stretch",
-        ):
-            candidates = [
-                asset
-                for asset in library.newest_first(library.filter(kinds=[config.KIND_IMAGE]))
-                if asset.id not in refs
-            ][:60]
-            if candidates:
-                picked = ui.thumbnail_table(
-                    library,
-                    candidates,
-                    key="studio_ref_table",
-                    height=240,
-                    selection_mode="multi-row",
-                )
-                if st.button(i18n.t("studio.refs.add_selected"), key="studio_ref_add"):
-                    for asset in picked:
-                        refs.append(asset.id)
-                    st.session_state.studio_refs = refs
-                    st.rerun()
-            else:
-                st.caption(i18n.t("studio.refs.none_library"))
+            key="studio_ref_popover",
+            on_change="rerun",
+        )
+        if lib_popover.open:
+            with lib_popover:
+                candidates = [
+                    asset
+                    for asset in library.newest_first(library.filter(kinds=[config.KIND_IMAGE]))
+                    if asset.id not in refs
+                ][:60]
+                if candidates:
+                    picked = ui.thumbnail_table(
+                        library,
+                        candidates,
+                        key="studio_ref_table",
+                        height=240,
+                        selection_mode="multi-row",
+                    )
+                    if st.button(i18n.t("studio.refs.add_selected"), key="studio_ref_add"):
+                        for asset in picked:
+                            refs.append(asset.id)
+                        st.session_state.studio_refs = refs
+                        st.rerun()
+                else:
+                    st.caption(i18n.t("studio.refs.none_library"))
 
     for asset_id in ui.ingest_uploads(
         uploaded, index_key="studio_upload_index", origin=config.ORIGIN_REFERENCE
@@ -376,6 +380,7 @@ def _render_generate() -> None:
                 ),
                 key="studio_model",
                 required=True,
+                persist_state="session",
                 help="\n\n".join(
                     i18n.t(f"models.{m['id']}.tagline") for m in config.IMAGE_MODELS
                 ),
@@ -432,8 +437,10 @@ def _render_vectors() -> None:
         i18n.t("studio.vector.mode"),
         ["generate", "trace"],
         default="generate",
+        required=True,
         format_func=lambda value: i18n.t(f"studio.vector.{value}_mode"),
         key="studio_vector_mode",
+        persist_state="session",
     )
     left, right = st.columns([2, 3], gap="large")
 
@@ -539,12 +546,14 @@ def _render_vectors() -> None:
 ui.key_ready()
 
 mode = st.segmented_control(
-    "studio_mode",
+    i18n.t("studio.mode_label"),
     [TAB_GENERATE, TAB_VECTOR],
     default=TAB_GENERATE,
+    required=True,
     format_func=lambda value: i18n.t(f"studio.mode_{value}"),
     key="studio_mode",
     label_visibility="collapsed",
+    persist_state="session",
 )
 
 if mode == TAB_VECTOR:

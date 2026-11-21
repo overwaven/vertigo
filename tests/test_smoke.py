@@ -15,6 +15,7 @@ from vertigo.store import Library
 @pytest.fixture(autouse=True)
 def vertigo_home(tmp_path, monkeypatch):
     """Point every test at a throwaway data directory."""
+    i18n.set_language(i18n.DEFAULT_LANGUAGE)
     monkeypatch.setenv("VERTIGO_HOME", str(tmp_path))
     for name in (
         "VERTIGO_OIDC_ENABLED",
@@ -701,3 +702,83 @@ def test_studio_reference_tray_and_session_ui_in_demo_mode(vertigo_home, monkeyp
     button_labels = [b.label for b in at.button]
     assert i18n.t("studio.edit_reuse") in button_labels
     assert i18n.t("jobs.dismiss") in button_labels
+
+
+def test_multipage_navigation_dynamic_tabs_and_library_fragment(vertigo_home):
+    """Verify st.navigation page switching, dynamic settings tabs, and library filtering."""
+    import io
+    from pathlib import Path
+
+    from PIL import Image
+    from streamlit.testing.v1 import AppTest
+
+    from vertigo.store import get_library
+
+    auth.ensure_users()
+    admin = auth.list_users()[0]
+    library = get_library(admin.id)
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (64, 64), (37, 99, 235, 255)).save(buf, format="PNG")
+    library.add_file(
+        buf.getvalue(),
+        kind=config.KIND_IMAGE,
+        name="orbit.png",
+        origin=config.ORIGIN_GENERATED,
+        media_type="image/png",
+        prompt="Blue orbit",
+    )
+    library.add_file(
+        b"Hello transcript text",
+        kind=config.KIND_TEXT,
+        name="notes.txt",
+        origin=config.ORIGIN_GENERATED,
+        media_type="text/plain",
+    )
+
+    entrypoint = Path(config.__file__).resolve().parent / "streamlit_app.py"
+    at = AppTest.from_file(str(entrypoint))
+    at.session_state["user_id"] = admin.id
+    at.session_state["user_name"] = admin.name
+    at.run(timeout=15)
+    assert not at.exception
+
+    # Switch through every page registered in st.navigation.
+    for page_path in (
+        "app_pages/studio.py",
+        "app_pages/enhance.py",
+        "app_pages/speech.py",
+        "app_pages/library.py",
+        "app_pages/settings.py",
+    ):
+        at.switch_page(page_path).run(timeout=15)
+        assert not at.exception, f"{page_path} raised: {at.exception}"
+
+    # Settings dynamic tabs render cleanly when switched.
+    for tab_key in ("connection", "data", "family", "about"):
+        at.session_state["settings_tabs"] = i18n.t(f"settings.tab.{tab_key}")
+        at.run(timeout=15)
+        assert not at.exception, f"settings tab {tab_key} raised: {at.exception}"
+        if tab_key == "family":
+            assert len(at.dataframe) == 1
+
+    # Library live search filters assets cleanly.
+    at.switch_page("app_pages/library.py").run(timeout=15)
+    assert not at.exception
+    assert len(at.dataframe) == 1
+    assert len(at.dataframe[0].value) == 2
+
+    at.text_input(key="lib_search").set_value("orbit").run(timeout=15)
+    assert not at.exception
+    assert len(at.dataframe[0].value) == 1
+
+
+def test_i18n_is_context_isolated():
+    """Changing language in one thread does not bleed into another thread."""
+    import concurrent.futures
+
+    i18n.set_language("en")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        other = pool.submit(lambda: (i18n.set_language("ru"), i18n.get_language())[1]).result()
+    assert other == "ru"
+    assert i18n.get_language() == "en"

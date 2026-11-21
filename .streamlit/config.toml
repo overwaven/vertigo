@@ -1,8 +1,8 @@
 # Vertigo Theme
 
 [theme]
-baseRadius = "2px"
-buttonRadius = "2px"
+baseRadius = "12px"
+buttonRadius = "12px"
 showWidgetBorder = false
 showSidebarBorder = false
 baseFontSize = 16

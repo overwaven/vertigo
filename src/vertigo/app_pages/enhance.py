@@ -60,12 +60,14 @@ ui.key_ready()
 remove_label = i18n.t("enhance.mode_remove_bg")
 upscale_label = i18n.t("enhance.mode_upscale")
 mode = st.segmented_control(
-    "enhance_mode",
+    i18n.t("enhance.mode_label"),
     [REMOVE_BG, UPSCALE],
     default=REMOVE_BG,
+    required=True,
     format_func=lambda value: remove_label if value == REMOVE_BG else upscale_label,
     key="enhance_mode",
     label_visibility="collapsed",
+    persist_state="session",
 )
 
 left, right = st.columns([2, 3], gap="large")

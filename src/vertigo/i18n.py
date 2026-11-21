@@ -1,12 +1,15 @@
 """Translations for the Vertigo interface.
 
-Two languages, English and Russian. The active language is process-local
-(``set_language``) and is applied before any page renders, so ``t()`` can be
-called from anywhere in the UI code without threading a language argument
-around. Strings use ``{name}`` placeholders filled by ``t(key, name=...)``.
+Two languages, English and Russian. The active language is context-local
+(``ContextVar``, set via ``set_language``) and is applied before any page or
+fragment renders, so concurrent sessions never interfere with each other and
+``t()`` can be called from anywhere in the UI code without threading a language
+argument around. Strings use ``{name}`` placeholders filled by ``t(key, name=...)``.
 """
 
 from __future__ import annotations
+
+from contextvars import ContextVar
 
 DEFAULT_LANGUAGE = "en"
 
@@ -17,7 +20,7 @@ LANGUAGES: dict[str, str] = {
 
 LANG_COOKIE = "vertigo_lang"
 
-_current = DEFAULT_LANGUAGE
+_current: ContextVar[str] = ContextVar("vertigo_language", default=DEFAULT_LANGUAGE)
 
 
 def normalize(code: str | None) -> str:
@@ -29,13 +32,13 @@ def normalize(code: str | None) -> str:
 
 
 def set_language(code: str | None) -> str:
-    global _current
-    _current = normalize(code)
-    return _current
+    lang = normalize(code)
+    _current.set(lang)
+    return lang
 
 
 def get_language() -> str:
-    return _current
+    return _current.get()
 
 
 def language_label(code: str) -> str:
@@ -44,7 +47,7 @@ def language_label(code: str) -> str:
 
 def t(key: str, **params: object) -> str:
     """Translate ``key`` into the active language."""
-    table = TRANSLATIONS.get(_current, TRANSLATIONS[DEFAULT_LANGUAGE])
+    table = TRANSLATIONS.get(_current.get(), TRANSLATIONS[DEFAULT_LANGUAGE])
     template = table.get(key)
     if template is None:
         template = TRANSLATIONS[DEFAULT_LANGUAGE].get(key, key)
@@ -63,11 +66,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "en": {
         # Navigation
         "nav.home": "Home",
+        "nav.home.help": "Library overview, active job counts, quick shortcuts, and recent creations.",
         "nav.studio": "Image studio",
+        "nav.studio.help": "Generate and edit images with references, create Recraft vectors, or trace images to SVG.",
         "nav.enhance": "Enhance",
+        "nav.enhance.help": "Remove backgrounds into transparent PNGs or upscale images with Recraft and Topaz.",
         "nav.speech": "Speech",
+        "nav.speech.help": "Synthesise speech with ElevenLabs or Gemini, or transcribe audio with Scribe and export subtitles.",
         "nav.library": "Library",
+        "nav.library.help": "Search, filter, preview, rename, reuse as references, download, or delete saved assets.",
         "nav.settings": "Settings",
+        "nav.settings.help": "Manage your profile, PIN, fal.ai API key, storage, queue, and family profiles.",
         "section.create": "Create",
         "section.manage": "Manage",
         "language.label": "Language",
@@ -125,6 +134,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "common.details": "Details",
         "common.sign_out": "Sign out",
         "common.choose_from_library": "Choose from library",
+        "common.picker_alt": "Library images available for selection",
         "common.source_image": "Source image",
         "common.upload_image_hint": "Upload an image or add one to the library first.",
         "common.upload_audio_hint": "Upload an audio file to get started.",
@@ -170,6 +180,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "home.recent_visuals_empty": "Nothing here yet — head to the [Image studio]({path}) to make something.",
         "home.recent_speech": "Recent speech & transcripts",
         # Studio
+        "studio.mode_label": "Studio mode",
         "studio.mode_generate": "Generate & edit",
         "studio.mode_vector": "Vector",
         "studio.model": "Model",
@@ -214,6 +225,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "param.web_search": "Web search grounding",
         "param.images": "Images",
         # Enhance
+        "enhance.mode_label": "Enhance mode",
         "enhance.mode_remove_bg": "Remove background",
         "enhance.mode_upscale": "Upscale",
         "enhance.image": "Image",
@@ -225,6 +237,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "enhance.stage.title": "Your enhanced images will appear here",
         "enhance.stage.body": "Pick an image, choose remove background or upscale, then run it.",
         # Speech
+        "speech.mode_label": "Speech mode",
         "speech.mode_tts": "Text to speech",
         "speech.mode_stt": "Transcribe audio",
         "speech.text": "Text",
@@ -249,6 +262,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Library
         "library.search": "Search",
         "library.search_placeholder": "Name or prompt…",
+        "library.table_alt": "Media library assets",
+        "library.details_alt": "Selected asset metadata",
         "library.count": "{count} asset(s)",
         "library.column.preview": "Preview",
         "library.column.name": "Name",
@@ -329,6 +344,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings.wipe_confirm": "Type DELETE to confirm",
         "settings.family": "Family profiles",
         "settings.family_caption": "Each profile has its own isolated library, history and queue.",
+        "settings.family_table_alt": "Family profiles and library asset counts",
         "settings.assets_count": "{count} assets",
         "settings.remove_profile": "Remove",
         "settings.badge_admin": "admin",
@@ -416,11 +432,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ------------------------------------------------------------------ #
     "ru": {
         "nav.home": "Главная",
+        "nav.home.help": "Обзор библиотеки, активные задачи, быстрые переходы и недавние работы.",
         "nav.studio": "Фотостудия",
+        "nav.studio.help": "Генерация и редактирование изображений с референсами, создание векторов Recraft и трассировка в SVG.",
         "nav.enhance": "Улучшение",
+        "nav.enhance.help": "Удаление фона в прозрачный PNG и увеличение изображений в Recraft и Topaz.",
         "nav.speech": "Речь",
+        "nav.speech.help": "Синтез речи в ElevenLabs и Gemini, а также расшифровка аудио в Scribe с экспортом субтитров.",
         "nav.library": "Библиотека",
+        "nav.library.help": "Поиск, фильтрация, просмотр, переименование, повторное использование, скачивание и удаление файлов.",
         "nav.settings": "Настройки",
+        "nav.settings.help": "Управление профилем, PIN-кодом, ключом fal.ai, хранилищем, очередью и профилями семьи.",
         "section.create": "Создание",
         "section.manage": "Управление",
         "language.label": "Язык",
@@ -474,6 +496,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "common.details": "Подробнее",
         "common.sign_out": "Выйти",
         "common.choose_from_library": "Выберите из библиотеки",
+        "common.picker_alt": "Изображения библиотеки для выбора",
         "common.source_image": "Исходное изображение",
         "common.upload_image_hint": "Загрузите изображение или сначала добавьте его в библиотеку.",
         "common.upload_audio_hint": "Загрузите аудиофайл, чтобы начать.",
@@ -516,6 +539,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "home.recent_visuals": "Недавние изображения и векторы",
         "home.recent_visuals_empty": "Здесь пока пусто — перейдите в [Фотостудию]({path}), чтобы создать что-нибудь.",
         "home.recent_speech": "Недавняя речь и транскрипты",
+        "studio.mode_label": "Режим фотостудии",
         "studio.mode_generate": "Генерация и редактирование",
         "studio.mode_vector": "Вектор",
         "studio.model": "Модель",
@@ -559,6 +583,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "param.format": "Формат",
         "param.web_search": "Поиск в сети",
         "param.images": "Изображений",
+        "enhance.mode_label": "Режим улучшения",
         "enhance.mode_remove_bg": "Убрать фон",
         "enhance.mode_upscale": "Увеличить",
         "enhance.image": "Изображение",
@@ -569,6 +594,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "enhance.upscale": "Увеличить",
         "enhance.stage.title": "Здесь появятся улучшенные изображения",
         "enhance.stage.body": "Выберите изображение, режим «Убрать фон» или «Увеличить» и запустите.",
+        "speech.mode_label": "Режим речи",
         "speech.mode_tts": "Текст в речь",
         "speech.mode_stt": "Транскрипция аудио",
         "speech.text": "Текст",
@@ -592,6 +618,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "speech.stage.body": "Введите текст для озвучки или выберите аудиофайл для транскрипции.",
         "library.search": "Поиск",
         "library.search_placeholder": "Название или промпт…",
+        "library.table_alt": "Объекты медиабиблиотеки",
+        "library.details_alt": "Метаданные выбранного объекта",
         "library.count": "Объектов: {count}",
         "library.column.preview": "Превью",
         "library.column.name": "Название",
@@ -671,6 +699,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings.wipe_confirm": "Введите DELETE для подтверждения",
         "settings.family": "Профили семьи",
         "settings.family_caption": "У каждого профиля своя изолированная библиотека, история и очередь.",
+        "settings.family_table_alt": "Профили семьи и количество объектов в библиотеке",
         "settings.assets_count": "Объектов: {count}",
         "settings.remove_profile": "Удалить",
         "settings.badge_admin": "админ",
